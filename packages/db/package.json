@@ -1,0 +1,17 @@
+{
+  "name": "@fitness/db",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "drizzle-orm": "^0.30.0",
+    "pg": "^8.11.3",
+    "@fitness/config": "workspace:*"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.20.14",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.4.0"
+  }
+}
