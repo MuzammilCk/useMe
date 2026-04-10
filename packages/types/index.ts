@@ -1,11 +1,13 @@
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string | Record<string, string>;
-  meta?: {
-    page?: number;
-    limit?: number;
-    total?: number;
-    [key: string]: any;
-  };
-}
+import { validations } from "@fitness/db";
+
+export const {
+  insertExerciseSchema,
+  selectExerciseSchema,
+  insertPlanSchema,
+  selectPlanSchema,
+  insertUserSchema,
+  selectUserSchema,
+} = validations;
+
+import { z } from "zod";
+export { z };

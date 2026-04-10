@@ -6,5 +6,9 @@
   "types": "index.ts",
   "devDependencies": {
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@fitness/db": "workspace:^",
+    "zod": "^3.22.4"
   }
 }
