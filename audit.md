@@ -1,149 +1,40 @@
-What Was Implemented Perfectly
-The Drizzle Schema (packages/db/src/schema.ts): This is flawless. The timestamps, enums, and especially the many-to-many junction tables (exerciseToMuscleGroup and exerciseToEquipment) are defined exactly as specified with proper relational mapping.
+# TASK: Phase 0 & Phase 1 Hardening & Gap Remediation
 
-The Magic Bridge (packages/db/src/validations.ts): drizzle-zod was successfully implemented, and the DTO mapping in the NestJS controller (CreateExerciseDto) correctly consumes the auto-generated insertExerciseSchema.
+You are an elite Staff Engineer. Before we proceed to Phase 2, we must fix several critical gaps in our current implementation. Our `diff.md` claims Phase 1 is done, but cross-referencing `plan.md` reveals missing foundational elements.
 
-The Seed Script: The faker script is robust. It correctly handles the complex insertions required for junction tables, ensuring your test database will have realistic relational data.
+Read `agent.md`, `context.md`, and `plan.md` to refresh your memory. Execute the following fixes step-by-step. Do not write feature logic for future phases—only fulfill the strict structural contracts of Phase 0 and 1.
 
-Integration Tests: The exercises.e2e-spec.ts accurately tests the nestjs-zod validation layer, ensuring bad payloads are rejected with 400 status codes.
+### STEP 1: Fix Monorepo Scripts & Types (Phase 0)
+1. In `packages/types/index.ts`, define and export the generic API response contract:
+   `export interface ApiResponse<T> { success: boolean; data: T | null; error: { code: string; message: string; field?: string } | null; meta?: { page?: number; total?: number; version?: string }; }`
+2. Ensure `package.json` in `packages/db`, `packages/config`, and `packages/types` all have a `"type-check": "tsc --noEmit"` script so Turborepo's `type-check` pipeline works correctly.
 
-🔴 Critical Gaps (The Missing Pieces)
-1. The Next.js Frontend is Completely Missing
-The directory structure shows apps/api, but apps/web was never initialized.
+### STEP 2: Fix API Foundation (Phase 0)
+1. In `apps/api/src/app.controller.ts`, replace `getHello()` with a `GET /health` endpoint that returns standard uptime metadata (status, timestamp, uptime).
+2. Create `apps/api/src/common/filters/global-exception.filter.ts`. Implement a NestJS `ExceptionFilter` that catches all errors (including Zod validation errors from `nestjs-zod`) and formats them strictly into the `ApiResponse<T>` shape defined in `packages/types`.
+3. Register the global exception filter in `apps/api/src/main.ts`.
 
-2. The Standardized ApiResponse<T> Type is Missing
-Phase 0 mandated that all API responses follow a strict envelope (success, data, error, meta), but this generic interface was never added to packages/types/index.ts.
+### STEP 3: Complete the Core Data Model (Phase 1)
+1. Open `packages/db/src/schema.ts` and append the missing tables exactly as outlined in `plan.md`:
+   - `WorkoutTemplate` & `WorkoutExercise` (ordered list).
+   - `ProgressLog`, `ExerciseLog`, & `ExerciseSet` (with weight, reps, RPE).
+   - `NutritionProfile` & `WeightLog`.
+   - `AuditLog`.
+2. Ensure all relations are correctly mapped using Drizzle's `relations` block.
+3. Update `packages/db/src/validations.ts` to export `insert` and `select` schemas for these new tables using `drizzle-zod`.
+4. Run the necessary command to generate the new drizzle migrations (`drizzle-kit generate`).
 
-3. The Global Exception Filter is Missing
-The NestJS app does not have the required exception filter to format all errors into the ApiResponse<T> shape. Unhandled errors will currently return standard framework JSON instead of our enterprise contract shape.
+### STEP 4: Scaffold Missing API Modules (Phase 1)
+1. Inside `apps/api/src`, scaffold the basic NestJS modules, controllers, and services for:
+   - `PlansModule` (`GET/POST /v1/plans`, `GET/PUT/DELETE /v1/plans/:id`, `GET/POST /v1/plans/:id/days`)
+   - `ProgressModule` (`GET/POST /v1/progress`)
+   - `NutritionModule` (`GET/POST /v1/nutrition/profile`)
+2. Use the Zod schemas from `@fitness/types` as DTOs (via `nestjs-zod`) for all `POST` endpoints. Leave the service methods returning mock data matching the `ApiResponse<T>` contract for now; we just need the routing and validation wired up.
 
-4. The Health Endpoint is Boilerplate
-app.controller.ts is still returning the default "Hello World!" instead of standard uptime metadata.
+### STEP 5: Initialize the Web App (Phase 0)
+1. Run the command to scaffold the missing Next.js 15 frontend inside `apps/web`: 
+   `npx create-next-app@latest apps/web --typescript --tailwind --eslint --app --use-pnpm --src-dir --import-alias "@/*"`
+2. Strip out the boilerplate `page.tsx` and leave a simple "Fitness Platform Web" server component. Add it to the Turborepo workspace.
 
-🛠️ How to Fix the Codebase Right Now
-Apply these patches to lock in the Phase 0/1 contract completely.
-
-1. Add the Global API Type
-Update packages/types/index.ts to include the response wrapper:
-
-TypeScript
-// packages/types/index.ts
-import { validations } from "@fitness/db";
-
-export const {
-  insertExerciseSchema,
-  selectExerciseSchema,
-  insertPlanSchema,
-  selectPlanSchema,
-  insertUserSchema,
-  selectUserSchema,
-} = validations;
-
-import { z } from "zod";
-export { z };
-
-// Add the missing global response type
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data: T | null;
-  error: {
-    code: string;
-    message: string;
-    field?: string;
-  } | null;
-  meta?: {
-    page?: number;
-    total?: number;
-    version?: string;
-  };
-}
-2. Implement the Global Exception Filter
-Create a new file in the backend to catch and format all errors: apps/api/src/common/filters/global-exception.filter.ts.
-
-TypeScript
-// apps/api/src/common/filters/global-exception.filter.ts
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
-import { ApiResponse } from '@fitness/types';
-
-@Catch()
-export class GlobalExceptionFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
-    let code = 'INTERNAL_ERROR';
-
-    if (exception instanceof HttpException) {
-      status = exception.getStatus();
-      const exceptionResponse = exception.getResponse() as any;
-      message = exceptionResponse.message || exception.message;
-      code = exceptionResponse.error || 'HTTP_EXCEPTION';
-    }
-
-    const errorResponse: ApiResponse<null> = {
-      success: false,
-      data: null,
-      error: {
-        code,
-        message: Array.isArray(message) ? message[0] : message, // Handle nested Zod errors
-      }
-    };
-
-    response.status(status).json(errorResponse);
-  }
-}
-3. Wire Up the Filter & Fix the Health Check
-Update apps/api/src/main.ts to use the new filter globally.
-
-TypeScript
-// apps/api/src/main.ts
-import { NestFactory } from '@nestjs/core';
-import { VersioningType } from '@nestjs/common';
-import { AppModule } from './app.module';
-import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
-
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  
-  app.enableVersioning({
-    type: VersioningType.URI,
-  });
-
-  // Apply the standardized error envelope
-  app.useGlobalFilters(new GlobalExceptionFilter());
-
-  await app.listen(process.env.PORT ?? 3000);
-}
-bootstrap();
-Update apps/api/src/app.controller.ts to be a proper health check:
-
-TypeScript
-// apps/api/src/app.controller.ts
-import { Controller, Get } from '@nestjs/common';
-
-@Controller('health')
-export class AppController {
-  @Get()
-  getHealth() {
-    return {
-      status: 'ok',
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString()
-    };
-  }
-}
-4. Initialize the Missing Frontend
-Run this command from the root of your workspace to create the missing apps/web project:
-
-Bash
-pnpm create next-app apps/web --typescript --tailwind --eslint --app --src-dir --import-alias "@/*"
-Once created, open apps/web/package.json and add the workspace dependencies to link it to your monorepo:
-
-JSON
-"dependencies": {
-  "@fitness/types": "workspace:^",
-  // ... other next dependencies
-}
+### FINAL STEP
+Update `diff.md` under a new header `### Pre-Phase 2 Remediation` detailing exactly what was fixed (Global Exception Filter, Missing Drizzle Schemas, Missing API modules, and Next.js initialization).
