@@ -7,6 +7,7 @@ import {
   integer,
   boolean,
   uniqueIndex,
+  index,
   decimal,
   jsonb,
 } from "drizzle-orm/pg-core";
@@ -101,6 +102,11 @@ export const exercises = pgTable("exercises", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),
+}, (table) => {
+  return {
+    // Generate an index to support text searching via ILIKE locally or more optimally if migrating to tsquery
+    nameSearchIdx: index("exercises_name_search_idx").on(table.name),
+  };
 });
 
 export const exercisesRelations = relations(exercises, ({ many }) => ({

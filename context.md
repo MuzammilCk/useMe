@@ -18,3 +18,4 @@ This repository is an enterprise-grade Fitness Platform utilizing a modern, type
 
 ## Milestones Achieved
 - **Phase 1**: Schema-Driven Development implemented. DB strictly typed using Drizzle. Auto-generated schemas shared with NestJS via unified `@fitness/types` utilizing `nestjs-zod`. Vitest configurations injected into API layer.
+- **Phase 2**: Exercise Library mapped. Instituted Database GIN-like text indices, Redis caching layer over API endpoints acting with Graceful Degradation routing, and Full Next.js Admin & Library interfaces wired with URL-based `searchParams` filter management and React Hook Form strict validation schemas.

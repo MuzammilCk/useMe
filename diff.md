@@ -67,3 +67,27 @@
 - Updated `layout.tsx` metadata (title, description).
 - Removed conflicting `pnpm-workspace.yaml` and `pnpm-lock.yaml` from `apps/web` (web is part of root workspace).
 - Added `type-check` script to `apps/web/package.json`.
+
+### Phase 2: Exercise & Content Library
+- **Database Performance**: Added an explicit text search index natively mapped by Drizzle to the `exercises` table leveraging `.on(table.name)`.
+- **The Query Contract**: Unified parameter mapping by instituting a rigid `exerciseQuerySchema` Zod validation inside `@fitness/types`.
+- **Redis Caching**:
+  - Implemented `RedisService` resolving against `env.REDIS_URL`.
+  - Configured silent fallbacks: API gracefully bypasses Cache blocks routing straight DB calls when Redis is unavailable.
+  - Implemented 1 hour Time-To-Live (TTL) responses across indexed listing permutations (`exercises:list:*`) and `exercises:detail:*` blocks.
+  - Setup cache validation / dropping upon admin CMS `update` or `create` functions.
+- **Keyset Pagination**: Switched `findMany` limit/offset logic in `ExercisesService` to high-performance keyset cursor-based queries mapping to UUID comparators and standard `ilike` searching.
+- **Frontend App (`apps/web`)**: 
+  - Rendered `Exercise Library` grid layout driven by Next.js Server Components.
+  - Crafted `ExerciseFilters` mapping active view state cleanly into Next.js URL routing (`searchParams`) rather than relying on heavy client-side `useState`. 
+  - Constructed `Exercise Detail Page` pulling extensive relationships mapped via single slug requests over the unified API.
+  - Formulated strict admin CMS capabilities via `@hookform/resolvers/zod` utilizing identical `@fitness/types` insertion structures to post against API validation endpoints without explicit redefining.
+
+### Phase 2 Development Errors & Remediations
+1. **Checkbox Prop Error (`onCheckedChange` does not exist)**
+   - **Why It Occurred:** We initially attempted to use `onCheckedChange` assuming the `Checkbox` component was a full Radix UI custom component (like shadcn/ui defaults). However, the internal codebase `Checkbox` was implemented as a direct wrapper around a native standard `<input type="checkbox" />`.
+   - **How we Solved It:** We swapped the prop strictly back to standard React DOM `onChange={(e) => setValue("field", e.target.checked)}`.
+
+2. **Drizzle-Zod Strict Constraint Error (`BuildSchema does not satisfy constraint ZodType`)**
+   - **Why It Occurred:** The `insertExerciseSchema` imported from `@fitness/types` uses `drizzle-zod` internally to map schema configurations. Deep structural type checking constraints on the frontend `z.infer` crashed because PNPM duplicated the `zod` module (via an outdated `zod-validation-error` dependency) limiting the nested `BuildSchema` TS constraint mapping from recognizing the generated Drizzle type natively as a base `ZodType<any,any,any>`.
+   - **How we Solved It:** We bypassed the failing `z.infer` mapped extraction by manually defining the form's insertion layout inside a local `FormData` interface mapping to the Drizzle values while hard casting the React Hook Form validation via `.omit() as unknown as z.ZodType<any, any, any>` guaranteeing both TypeScript linting accuracy and identical runtime validations.
