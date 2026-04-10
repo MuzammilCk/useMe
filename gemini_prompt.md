@@ -57,3 +57,51 @@ STEP 7: CI/CD
 3. The pipeline must run: linting across all packages, type-checking, and a build check.
 
 Output the necessary bash commands to initialize this state, followed by the content of the critical configuration files (`turbo.json`, the Zod env schema, the generic API response type, and the initial `agent.md` rules). Ensure all packages are correctly linked via the package manager.
+
+
+phase 1 build:
+
+You are an elite Staff Engineer executing Phase 1 of our enterprise-grade Fitness Platform. Our goal is to implement Schema-Driven Development. We will define the database schema, generate a robust seed script, set up auto-generated Zod validation, and build the foundational API endpoints.
+
+CRITICAL: You must read `context.md` and `agent.md` before starting. Update `diff.md` and `context.md` upon completion.
+
+STACK CONSTRAINTS:
+- ORM: Drizzle ORM (`packages/db`)
+- Validation: Zod + `drizzle-zod` (`packages/types`)
+- Backend: NestJS (`apps/api`) with `nestjs-zod` for DTO validation
+- Database: PostgreSQL
+- Testing: Vitest + Supertest
+
+STEP 1: THE DRIZZLE SCHEMA
+Inside `packages/db/src/schema.ts`, implement the following schema exactly. Use PostgreSQL enums where appropriate. All tables must have `id` (uuid defaultRandom), `created_at`, `updated_at`, and `deleted_at`.
+1. Users: email, role (USER, COACH, ADMIN).
+2. UserProfiles: userId (1:1), firstName, lastName, fitnessLevel, primaryGoal, hasInjuries, etc.
+3. Equipment: name, slug, category.
+4. MuscleGroups: name, slug, bodyRegion (UPPER, LOWER, CORE, FULL).
+5. Exercises: name, slug, description, instructions (text array), formTips (text array), difficultyLevel (1-5), isBodyweight, isUnilateral.
+6. Junction Tables: ExerciseToMuscleGroup (with `isPrimary` boolean), ExerciseToEquipment.
+7. Plans & PlanDays: userId, title, status, startDate, dayNumber, isRestDay.
+Ensure Drizzle relations are correctly defined so we can query them with `.with()`.
+
+STEP 2: THE MAGIC BRIDGE (ZOD)
+1. Install `drizzle-zod` in `packages/db`.
+2. Create `packages/db/src/validations.ts`. Use `createInsertSchema` and `createSelectSchema` from `drizzle-zod` to automatically generate Zod schemas for `Exercises`, `Plans`, and `Users`.
+3. Export these generated Zod schemas from `packages/types` so the API can consume them.
+
+STEP 3: THE SEED SCRIPT
+1. Inside `packages/db/src/seed.ts`, write a script using `@faker-js/faker`.
+2. It must clear the database, insert standard enums (e.g., 5 Muscle Groups, 5 Equipment types), and generate at least 20 realistic Exercises linked to muscles and equipment.
+3. Add a "seed" script to the `packages/db` package.json.
+
+STEP 4: NESTJS API (CRUD)
+1. Inside `apps/api`, create an `Exercises` module.
+2. Create `GET /v1/exercises` (must include pagination and fetch related muscles/equipment).
+3. Create `POST /v1/exercises`.
+4. Install `nestjs-zod`. Use the Zod schemas exported from `packages/types` to validate the incoming POST request body. Do not write manual class-validator DTOs; rely entirely on the Zod schemas.
+
+STEP 5: INTEGRATION TESTING
+1. Inside `apps/api/test`, create `exercises.e2e-spec.ts`.
+2. Write a Vitest + Supertest integration test that sends a POST request to create an exercise with missing required fields to verify that the `nestjs-zod` validation correctly rejects it and returns the `ApiResponse<T>` shape.
+3. Write a test that successfully creates an exercise and returns a 201.
+
+Output the necessary bash commands to install new dependencies (`drizzle-zod`, `nestjs-zod`, `@faker-js/faker`, etc.), followed by the implementation of the `schema.ts`, the `seed.ts`, and the NestJS Exercise Controller.
